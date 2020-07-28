@@ -374,7 +374,10 @@ namespace SvgConverter
                 doc.Save(ms);
                 ms.Position = 0;
                 reader.Read(ms);
-                return reader.Drawing;
+                var drawing = reader.Drawing;
+				reader.Dispose();
+				
+				return drawing;
             }
         }
 

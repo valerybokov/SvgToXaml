@@ -35,9 +35,9 @@ namespace SvgToXaml.ViewModels
 
         private void OpenFolderExecute()
         {
-            var folderDialog = new FolderBrowserDialog { Description = "Open Folder", SelectedPath = CurrentDir, ShowNewFolderButton = false };
-            if (folderDialog.ShowDialog() == DialogResult.OK)
-                CurrentDir = folderDialog.SelectedPath;
+            using (var folderDialog = new FolderBrowserDialog { Description = "Open Folder", SelectedPath = CurrentDir, ShowNewFolderButton = false })
+                if (folderDialog.ShowDialog() == DialogResult.OK)
+                    CurrentDir = folderDialog.SelectedPath;
         }
 
         private void OpenFileExecute()
@@ -51,44 +51,42 @@ namespace SvgToXaml.ViewModels
 
         private void ExportDirExecute()
         {
-            string outFileName = Path.GetFileNameWithoutExtension(CurrentDir) + ".xaml"; 
-            var saveDlg = new SaveFileDialog {AddExtension = true, DefaultExt = ".xaml", Filter = "Xaml-File|*.xaml", InitialDirectory = CurrentDir, FileName = outFileName};
-            if (saveDlg.ShowDialog() == DialogResult.OK)
-            {
-                string namePrefix = null;
-
-                bool useComponentResKeys = false;
-                string nameSpaceName = null;
-                var nameSpace = Microsoft.VisualBasic.Interaction.InputBox("Enter a NameSpace for using static ComponentResKeys (or leave empty to not use it)", "NameSpace");
-                if (!string.IsNullOrWhiteSpace(nameSpace))
+            string outFileName = Path.GetFileNameWithoutExtension(CurrentDir) + ".xaml";
+            using (var saveDlg = new SaveFileDialog { AddExtension = true, DefaultExt = ".xaml", Filter = "Xaml-File|*.xaml", InitialDirectory = CurrentDir, FileName = outFileName })
+                if (saveDlg.ShowDialog() == DialogResult.OK)
                 {
-                    useComponentResKeys = true;
-                    nameSpaceName =
-                        Microsoft.VisualBasic.Interaction.InputBox(
-                            "Enter a Name of NameSpace for using static ComponentResKeys", "NamespaceName");
+                    string namePrefix = null;
+                    bool useComponentResKeys = false;
+                    string nameSpaceName = null;
+                    var nameSpace = Microsoft.VisualBasic.Interaction.InputBox("Enter a NameSpace for using static ComponentResKeys (or leave empty to not use it)", "NameSpace");
+                    if (!string.IsNullOrWhiteSpace(nameSpace))
+                    {
+                        useComponentResKeys = true;
+                        nameSpaceName =
+                            Microsoft.VisualBasic.Interaction.InputBox(
+                                "Enter a Name of NameSpace for using static ComponentResKeys", "NamespaceName");
+                    }
+                    else
+                    {
+                        namePrefix = Microsoft.VisualBasic.Interaction.InputBox("Enter a namePrefix (or leave empty to not use it)", "Name Prefix");
+                        if (string.IsNullOrWhiteSpace(namePrefix))
+                            namePrefix = null;
+                    }
+
+                    outFileName = Path.GetFullPath(saveDlg.FileName);
+                    var resKeyInfo = new ResKeyInfo
+                    {
+                        XamlName = Path.GetFileNameWithoutExtension(outFileName),
+                        Prefix = namePrefix,
+                        UseComponentResKeys = useComponentResKeys,
+                        NameSpace = nameSpace,
+                        NameSpaceName = nameSpaceName,
+
+                    };
+                    File.WriteAllText(outFileName, ConverterLogic.SvgDirToXaml(CurrentDir, resKeyInfo, false));
+
+                    BuildBatchFile(outFileName, resKeyInfo);
                 }
-                else
-                {
-                    namePrefix = Microsoft.VisualBasic.Interaction.InputBox("Enter a namePrefix (or leave empty to not use it)", "Name Prefix");
-                    if (string.IsNullOrWhiteSpace(namePrefix))
-                        namePrefix = null;
-
-                }
-
-                outFileName = Path.GetFullPath(saveDlg.FileName);
-                var resKeyInfo = new ResKeyInfo
-                {
-                    XamlName = Path.GetFileNameWithoutExtension(outFileName),
-                    Prefix = namePrefix,
-                    UseComponentResKeys = useComponentResKeys,
-                    NameSpace = nameSpace,
-                    NameSpaceName = nameSpaceName,
-
-                };
-                File.WriteAllText(outFileName, ConverterLogic.SvgDirToXaml(CurrentDir, resKeyInfo, false));
-
-                BuildBatchFile(outFileName, resKeyInfo);
-            }
         }
 
         private void BuildBatchFile(string outFileName, ResKeyInfo compResKeyInfo)
@@ -143,7 +141,10 @@ namespace SvgToXaml.ViewModels
             var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream == null)
                 throw new InvalidDataException($"Error: {resourceName} not found in payload file");
-            var text = new StreamReader(stream, Encoding.UTF8).ReadToEnd();
+            string text;
+
+            using (var str = new StreamReader(stream, Encoding.UTF8))
+                text = str.ReadToEnd();
             var t4FileName = Path.ChangeExtension(outFileName, ".tt");
             File.WriteAllText(t4FileName, text, Encoding.UTF8);
         }
