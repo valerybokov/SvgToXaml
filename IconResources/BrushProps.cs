@@ -79,9 +79,9 @@ namespace RelativeBrushes
                 brushesCreated = true;
             }
             if (brushes.Count == 1 && (ReferenceEquals(brushes[0], args.OldValue)))
-                brushes[0] = args.NewValue as Brush;
+                brushes[0] = (Brush)args.NewValue;
             if (brushes.Count == 0)
-                brushes.Add(args.NewValue as Brush);
+                brushes.Add((Brush)args.NewValue);
             if (brushesCreated)
                 SetContentBrushes(dp, brushes);
         }
@@ -109,13 +109,13 @@ namespace RelativeBrushes
             var visual = dependencyObject as Visual;
             if (visual is Image && args.OldValue is BrushCollection)
             {
-                var image = visual as Image;
+                var image = (Image)visual;
                 var brushes = (BrushCollection)args.OldValue;
                 brushes.RemoveParent(image);
             }
             if (visual is Image && args.NewValue is BrushCollection)
             {
-                var image = visual as Image;
+                var image = (Image)visual;
                 var brushes = (BrushCollection)args.NewValue;
                 var imageSource = image.Source;
 
@@ -150,11 +150,9 @@ namespace RelativeBrushes
 
         private static void SourceExPropertyChangedCallback(DependencyObject dependencyObject, DependencyPropertyChangedEventArgs args)
         {
-            //(dependencyObject as Image).Source = args.NewValue as ImageSource;
-            var visual = dependencyObject as Visual;
-            if (visual is Image)
+            if (dependencyObject is Image)
             {
-                var image = visual as Image;
+                var image = (Image)dependencyObject;
                 if (args.NewValue is ImageSource)
                 {
                     var brushes = GetContentBrushes(image);
@@ -229,14 +227,11 @@ namespace RelativeBrushes
             {
                 var brushProps = GetBrushesPropsFromImageSource(imageSource);
                 
-                for (int i = 0; i < brushProps.Length; i++)
+                for (int i = 0; i < brushProps.Length && i < brushCollection.Count; ++i)
                 {
-                    if (i < brushCollection.Count)
-                    {
-                        var brushProp = brushProps[i];
-                        var brush = brushCollection[i];
-                        brushProp.Dp.SetValue(brushProp.Prop, brush);
-                    }
+                    var brushProp = brushProps[i];
+                    var brush = brushCollection[i];
+                    brushProp.Dp.SetValue(brushProp.Prop, brush);
                 }
             }
         }

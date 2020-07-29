@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
@@ -20,21 +21,20 @@ namespace SvgToXaml.ViewModels
         private string _currentDir;
         private ObservableCollectionSafe<ImageBaseViewModel> _images;
         private ImageBaseViewModel _selectedItem;
+        private ICommand
+            openFileCommand, openFolderCommand,
+            exportDirCommand, infoCommand;
 
         public SvgImagesViewModel()
         {
             _images = new ObservableCollectionSafe<ImageBaseViewModel>();
-            OpenFileCommand = new DelegateCommand(OpenFileExecute);
-            OpenFolderCommand = new DelegateCommand(OpenFolderExecute);
-            ExportDirCommand = new DelegateCommand(ExportDirExecute);
-            InfoCommand = new DelegateCommand(InfoExecute);
 
             ContextMenuCommands = new ObservableCollection<Tuple<object, ICommand>>();
             ContextMenuCommands.Add(new Tuple<object, ICommand>("Open Explorer", new DelegateCommand<string>(OpenExplorerExecute))); 
         }
 
         private void OpenFolderExecute()
-        {
+        {//TODO ERROR FolderBrowserDialog was not disposed
             using (var folderDialog = new FolderBrowserDialog { Description = "Open Folder", SelectedPath = CurrentDir, ShowNewFolderButton = false })
                 if (folderDialog.ShowDialog() == DialogResult.OK)
                     CurrentDir = folderDialog.SelectedPath;
@@ -43,19 +43,20 @@ namespace SvgToXaml.ViewModels
         private void OpenFileExecute()
         {
             var openDlg = new OpenFileDialog { CheckFileExists = true, Filter = "Svg-Files|*.svg*", Multiselect = false };
-            if (openDlg.ShowDialog().GetValueOrDefault())
+            if (openDlg.ShowDialog() == true)
             {
                 ImageBaseViewModel.OpenDetailWindow(new SvgImageViewModel(openDlg.FileName));
             }
         }
 
         private void ExportDirExecute()
-        {
+        {//TODO ERROR SaveFileDialog was not disposed
             string outFileName = Path.GetFileNameWithoutExtension(CurrentDir) + ".xaml";
             using (var saveDlg = new SaveFileDialog { AddExtension = true, DefaultExt = ".xaml", Filter = "Xaml-File|*.xaml", InitialDirectory = CurrentDir, FileName = outFileName })
                 if (saveDlg.ShowDialog() == DialogResult.OK)
                 {
                     string namePrefix = null;
+
                     bool useComponentResKeys = false;
                     string nameSpaceName = null;
                     var nameSpace = Microsoft.VisualBasic.Interaction.InputBox("Enter a NameSpace for using static ComponentResKeys (or leave empty to not use it)", "NameSpace");
@@ -96,9 +97,9 @@ namespace SvgToXaml.ViewModels
             {
                 var outputname = Path.GetFileNameWithoutExtension(outFileName);
                 var outputdir = Path.GetDirectoryName(outFileName);
-                var relOutputDir = FileUtils.MakeRelativePath(CurrentDir, PathIs.Folder, outputdir, PathIs.Folder);
-                var svgToXamlPath =System.Reflection.Assembly.GetEntryAssembly().Location;
-                var relSvgToXamlPath = FileUtils.MakeRelativePath(CurrentDir, PathIs.Folder, svgToXamlPath, PathIs.File);
+                var relOutputDir = FileUtils.MakeRelativePath(CurrentDir, true, outputdir, true);
+                var svgToXamlPath = System.Reflection.Assembly.GetEntryAssembly().Location;
+                var relSvgToXamlPath = FileUtils.MakeRelativePath(CurrentDir, true, svgToXamlPath, false);
                 var batchText = $"{relSvgToXamlPath} BuildDict /inputdir \".\" /outputdir \"{relOutputDir}\" /outputname {outputname}";
 
                 if (compResKeyInfo.UseComponentResKeys)
@@ -137,21 +138,24 @@ namespace SvgToXaml.ViewModels
             var appType = typeof(App);
             var assembly = appType.Assembly;
             //assembly.GetName().Name
-            var resourceName = appType.Namespace + "." + "Payload.T4Template.tt"; //Achtung: hier Punkt statt Slash
+            var resourceName = appType.Namespace + ".Payload.T4Template.tt"; //Achtung: hier Punkt statt Slash
             var stream = assembly.GetManifestResourceStream(resourceName);
             if (stream == null)
                 throw new InvalidDataException($"Error: {resourceName} not found in payload file");
             string text;
-
+            //tODO ERROR StreamReader was not disposed
             using (var str = new StreamReader(stream, Encoding.UTF8))
                 text = str.ReadToEnd();
+
             var t4FileName = Path.ChangeExtension(outFileName, ".tt");
             File.WriteAllText(t4FileName, text, Encoding.UTF8);
         }
 
         private void InfoExecute()
         {
-            MessageBox.Show("SvgToXaml © 2015 Bernd Klaiber\n\nPowered by\nsharpvectors.codeplex.com (Svg-Support),\nicsharpcode (AvalonEdit)", "Info");
+            MessageBox.Show(
+                string.Format("SvgToXaml © {0} Bernd Klaiber\n\nPowered by\nsharpvectors.codeplex.com (Svg-Support),\nicsharpcode (AvalonEdit)", DateTime.Today.Year),
+                "About");
         }
         private void OpenExplorerExecute(string path)
         {
@@ -163,7 +167,8 @@ namespace SvgToXaml.ViewModels
             get
             {
                 var result = new SvgImagesViewModel();
-                result.Images.Add(SvgImageViewModel.DesignInstance);
+                result.Images.Add(SvgImageViewModel.DesignInstance);//TODO why twicely?
+               // result.Images.Add(SvgImageViewModel.DesignInstance);
                 return result;
             }
         }
@@ -189,13 +194,52 @@ namespace SvgToXaml.ViewModels
             get { return _images; }
             set { SetProperty(ref _images, value); }
         }
+        
+        public ICommand OpenFolderCommand
+        {
+            get
+            {
+                if (openFileCommand == null)
+                    openFileCommand = new DelegateCommand(OpenFileExecute);
 
-        public ICommand OpenFolderCommand { get; set; }
-        public ICommand OpenFileCommand { get; set; }
-        public ICommand ExportDirCommand { get; set; }
-        public ICommand InfoCommand { get; set; }
+                return openFileCommand;
+            }
+        }
 
-        public ObservableCollection<Tuple<object, ICommand>> ContextMenuCommands { get; set; }
+        public ICommand OpenFileCommand
+        {
+            get
+            {
+                if (openFolderCommand == null)
+                    openFolderCommand = new DelegateCommand(OpenFolderExecute);
+
+                return openFolderCommand;
+            }
+        }
+
+        public ICommand ExportDirCommand
+        {
+            get
+            {
+                if (exportDirCommand == null)
+                    exportDirCommand = new DelegateCommand(ExportDirExecute);
+
+                return exportDirCommand;
+            }
+        }
+
+        public ICommand InfoCommand
+        {
+            get
+            {
+                if (infoCommand == null)
+                    infoCommand = new DelegateCommand(InfoExecute);
+
+                return infoCommand;
+            }
+        }
+
+        public ObservableCollection<Tuple<object, ICommand>> ContextMenuCommands { get; }
 
         private void ReadImagesFromDir(string folder)
         {
@@ -211,15 +255,17 @@ namespace SvgToXaml.ViewModels
             Images.AddRange(allImages);
         }
 
-        private static string[] GetFilesMulti(string sourceFolder, string filters, SearchOption searchOption = SearchOption.TopDirectoryOnly)
+        private static IEnumerable<string> GetFilesMulti(
+            string sourceFolder, string filters, SearchOption searchOption = SearchOption.TopDirectoryOnly)
         {
             try
             {
-                if (!Directory.Exists(sourceFolder))
+                if (Directory.Exists(sourceFolder))
+                    return filters.Split('|').SelectMany(filter => Directory.GetFiles(sourceFolder, filter, searchOption));
+                else
                     return new string[0];
-                return filters.Split('|').SelectMany(filter => Directory.GetFiles(sourceFolder, filter, searchOption)).ToArray();
             }
-            catch (Exception)
+            catch// (Exception)
             {
                 return new string[0];
             }

@@ -8,18 +8,34 @@ namespace SvgToXaml.ViewModels
 {
     public abstract class ImageBaseViewModel : ViewModelBase
     {
+        ICommand fOpenDetailCommand, fOpenFileCommand;
+
         protected ImageBaseViewModel(string filepath)
         {
             Filepath = filepath;
-            OpenDetailCommand = new DelegateCommand(OpenDetailExecute);
-            OpenFileCommand = new DelegateCommand(OpenFileExecute);
         }
 
         public string Filepath { get; }
         public string Filename => Path.GetFileName(Filepath);
         public ImageSource PreviewSource => GetImageSource();
-        public ICommand OpenDetailCommand { get; set; }
-        public ICommand OpenFileCommand { get; set; }
+        public ICommand OpenDetailCommand
+        {
+            get {
+                if (fOpenDetailCommand == null)
+                    fOpenDetailCommand = new DelegateCommand(OpenDetailExecute);
+
+                return fOpenDetailCommand;
+            }
+        }
+        public ICommand OpenFileCommand
+        {
+            get {
+                if (fOpenFileCommand == null)
+                    fOpenFileCommand = new DelegateCommand(OpenFileExecute);
+
+                return fOpenFileCommand;
+            } 
+        }
         protected abstract ImageSource GetImageSource();
         public abstract bool HasXaml { get; }
         public abstract bool HasSvg { get; }
