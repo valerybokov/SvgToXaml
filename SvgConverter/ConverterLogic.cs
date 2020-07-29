@@ -321,7 +321,7 @@ namespace SvgConverter
 
         public static void SizeGeometry(PathGeometry pg, Size size)
         {
-            if (size.Height > 0 && size.Height > 0)
+            if (size.Width > 0.0 && size.Height > 0.0)
             {
                 PathFigure[] sizeFigures =
                 {
