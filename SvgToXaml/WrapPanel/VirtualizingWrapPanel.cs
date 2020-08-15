@@ -249,7 +249,7 @@ namespace SvgToXaml.WrapPanel
             // ReSharper disable once PossibleLossOfFraction
             var firstRealizedItemTop = firstRealizedIndex / extentInfo.ItemsPerLine * itemHeight - VerticalOffset;
 
-            var firstCompleteLineTop = (firstVisibleLine == 0 ? firstRealizedItemTop : firstRealizedItemTop + ItemHeight);
+            var firstCompleteLineTop = firstVisibleLine == 0 ? firstRealizedItemTop : firstRealizedItemTop + ItemHeight;
             var completeRealizedLines = (int)Math.Ceiling((availableSize.Height - firstCompleteLineTop) / itemHeight);
 
             var lastRealizedIndex = Math.Min(firstRealizedIndex + completeRealizedLines * extentInfo.ItemsPerLine + 2, _itemsControl.Items.Count - 1);
@@ -458,7 +458,7 @@ namespace SvgToXaml.WrapPanel
 
         private static void HandleItemDimensionChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
-            var wrapPanel = (d as VirtualizingWrapPanel);
+            var wrapPanel = d as VirtualizingWrapPanel;
 
             wrapPanel?.InvalidateMeasure();
         }

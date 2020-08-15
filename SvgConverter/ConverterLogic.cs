@@ -58,22 +58,25 @@ namespace SvgConverter
 
         public static object ConvertSvgToObject(string filepath, ResultMode resultMode, WpfDrawingSettings wpfDrawingSettings, out string name, ResKeyInfo resKeyInfo)
         {
-            case ResultMode.DrawingGroup:
+            switch (resultMode)
             {
-                var dg = ConvertFileToDrawingGroup(filepath, wpfDrawingSettings);
-                var elementName = Path.GetFileNameWithoutExtension(filepath);
-                name = BuildDrawingGroupName(elementName, resKeyInfo);
-                return dg;
+                case ResultMode.DrawingGroup:
+                {
+                    var dg = ConvertFileToDrawingGroup(filepath, wpfDrawingSettings);
+                    var elementName = Path.GetFileNameWithoutExtension(filepath);
+                    name = BuildDrawingGroupName(elementName, resKeyInfo);
+                    return dg;
+                }
+                case ResultMode.DrawingImage:
+                {
+                    var dg = ConvertFileToDrawingGroup(filepath, wpfDrawingSettings);
+                    var elementName = Path.GetFileNameWithoutExtension(filepath);
+                    name = BuildDrawingImageName(elementName, resKeyInfo);
+                    return DrawingToImage(dg);
+                }
+                default:
+                    throw new ArgumentException(nameof(resultMode));
             }
-            case ResultMode.DrawingImage:
-            {
-                var dg = ConvertFileToDrawingGroup(filepath, wpfDrawingSettings);
-                var elementName = Path.GetFileNameWithoutExtension(filepath);
-                name = BuildDrawingImageName(elementName, resKeyInfo);
-                return DrawingToImage(dg);
-            }
-            default:
-                throw new ArgumentException(nameof(resultMode));
         }
 
         public static string SvgObjectToXaml(object obj, bool includeRuntime, string name, bool filterPixelsPerDip)
@@ -166,20 +169,21 @@ namespace SvgConverter
                 .Distinct(StringComparer.InvariantCultureIgnoreCase) //same Color only once
                 .Select((s, i) => new
                 {
-                    ResKey1 = BuildColorName(i+1, resKeyInfo), 
-                    ResKey2 = BuildColorBrushName(i + 1, resKeyInfo), 
+                    ResKey1 = BuildColorName(i + 1, resKeyInfo),
+                    ResKey2 = BuildColorBrushName(i + 1, resKeyInfo),
                     Color = s
-                }); //add numbers
+                }) //add numbers
+                .ToList();
 
             //building global Elements like: <SolidColorBrush x:Key="ImagesColorBrush1" Color="{DynamicResource ImagesColor1}" />
             rootElement.AddFirst(allBrushes
-                .Select(brush => new XElement(NsDef + "SolidColorBrush", 
+                .Select(brush => new XElement(NsDef + "SolidColorBrush",
                     new XAttribute(Nsx + "Key", brush.ResKey2),
                     new XAttribute("Color", $"{{DynamicResource {brush.ResKey1}}}"))));
 
             //building global Elements like: <Color x:Key="ImagesColor1">#FF000000</Color>
             rootElement.AddFirst(allBrushes
-                .Select(brush => new XElement(NsDef + "Color", 
+                .Select(brush => new XElement(NsDef + "Color",
                     new XAttribute(Nsx + "Key", brush.ResKey1),
                     brush.Color)));
 
@@ -193,24 +197,24 @@ namespace SvgConverter
                 var keyDg = node.Attribute(Nsx + "Key").Value;
                 var elemName = GetElemNameFromResKey(keyDg, resKeyInfo);
                 var elemBaseName = elemName.Replace("DrawingGroup", "");
-                
-                var brushAttributes = CollectBrushAttributesWithColor(node);
-                
+
+                var brushAttributes = CollectBrushAttributesWithColor(node).ToList();
+
                 foreach (var brushAttribute in brushAttributes)
                 {
                     var color = brushAttribute.Value;
                     string resKeyColor;
                     if (colorKeys.TryGetValue(color, out resKeyColor))
                     {   //global color found
-                        
+
                         //build resourcename
                         var nameBrush = brushAttributes.Count > 1
                             ? $"{elemBaseName}Color{brushAttributes.IndexOf(brushAttribute) + 1}Brush"
                             : $"{elemBaseName}ColorBrush"; //dont add number if only one color
                         var resKeyBrush = BuildResKey(nameBrush, resKeyInfo);
-                        node.AddBeforeSelf(new XElement(NsDef + "SolidColorBrush", 
-                            new XAttribute(Nsx + "Key", resKeyBrush), 
-                            new XAttribute("Color", $"{{Binding Color, Source={BuildResKeyReference(resKeyColor, false)}}}") ));
+                        node.AddBeforeSelf(new XElement(NsDef + "SolidColorBrush",
+                            new XAttribute(Nsx + "Key", resKeyBrush),
+                            new XAttribute("Color", $"{{Binding Color, Source={BuildResKeyReference(resKeyColor, false)}}}")));
                         //set brush value as Reference
                         //  <GeometryDrawing Brush="{DynamicResource {x:Static nsname:Test.cloud-3-iconBrushColor}}" ... />
                         brushAttribute.Value = BuildResKeyReference(resKeyBrush, true);
